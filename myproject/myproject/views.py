@@ -8,6 +8,7 @@ import requests
 from django.shortcuts import render, redirect
 from .models import Data
 from .forms import UploadFileForm, FetchDataForm # type: ignore
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 
 
 
@@ -75,45 +76,104 @@ def index(request):
     load_dotenv()
     
      # API key and URL for fetching news articles
-     
+class NYTArticleFetcher:
+    def __init__(self, api_key, limit=5):
+        self.api_key = api_key
+        self.limit = limit
+        self.url = "https://api.nytimes.com/svc/search/v2/articlesearch.json"
+    
+    def fetch_articles(self):
+        params = {
+            "api-key": self.api_key,
+            "q": "news",
+            "sort": "newest",
+            "fl": "web_url,headline,pub_date,snippet",
+            "page": 0
+        }
+        
+        try:
+            response = requests.get(self.url, params=params)
+            response.raise_for_status()
+            json_response = response.json()
+            docs = json_response.get("response", {}).get("docs", [])[:self.limit]
+            
+            articles = []
+            for article in docs:
+                articles.append({
+                    'headline': article.get("headline", {}).get("main", "No headline available"),
+                    'snippet': article.get("snippet", "No snippet available"),
+                    'url': article.get("web_url", "#"),
+                    'pub_date': article.get("pub_date", "No publication date")
+                })
+            return articles
+        except requests.RequestException as e:
+            print(f"Error fetching news: {e}")
+            return []
+
+def index(request):
+    # Load environment variables
+    load_dotenv()
+    
+    # Fetch data from the database
+    data = Data.objects.all()
+    
+    # Get API key from environment variable
     api_key = os.getenv("SECRET_API_KEY")
-    # api_key = 'X0JGJVseutnRfgwAD1l0ACSC4D1JEsh9'
-    url = f"https://api.nytimes.com/svc/search/v2/articlesearch.json?api-key={api_key}"
-   
-    news = []
-    articles = []  # Initialize articles list
-    headlines  = []  # Initialize articles list
     
-
-    try:
-        # Make the request to the NYT API
-        response = requests.get(url)
-        response.raise_for_status()  # Raise an exception for HTTP errors
-
-        # Parse the JSON response and limit to 5 articles
-        json_response = response.json()
-        docs = json_response.get("response", {}).get("docs", [])[:10]
-
-        # Create a list of articles with key fields (check for missing data)
-        for article in docs:
-            articles.append({
-                'headline': article.get("headline", {}).get("main", "No headline available"),
-                'snippet': article.get("snippet", "No snippet available"),
-                'url': article.get("web_url", "#"),
-                'pub_date': article.get("pub_date", "No publication date")
-            })
-
-    except requests.RequestException as e:
-        print(f"Error fetching news: {e}")
+    # Use the NYTArticleFetcher class to get articles
+    fetcher = NYTArticleFetcher(api_key)
+    articles = fetcher.fetch_articles()
     
-    # Pass data from the database and articles to the template
+    # Prepare context for the template
     context = {
-        'data': headlines,
+        'data': data,
         'articles': articles
     }
     
     return render(request, 'index.html', context)
-    # return redirect('index.html')
+     
+     
+     
+     
+      # API key and URL for fetching news articles
+    # api_key = os.getenv("SECRET_API_KEY")
+    # # api_key = 'X0JGJVseutnRfgwAD1l0ACSC4D1JEsh9'
+    # url = f"https://api.nytimes.com/svc/search/v2/articlesearch.json?api-key={api_key}"
+   
+    # news = []
+    # articles = []  # Initialize articles list
+    # headlines  = []  # Initialize articles list
+    
+
+    # try:
+    #     # Make the request to the NYT API
+    #     response = requests.get(url)
+    #     response.raise_for_status()  # Raise an exception for HTTP errors
+
+    #     # Parse the JSON response and limit to 5 articles
+    #     json_response = response.json()
+    #     docs = json_response.get("response", {}).get("docs", [])[:10]
+
+    #     # Create a list of articles with key fields (check for missing data)
+    #     for article in docs:
+    #         articles.append({
+    #             'headline': article.get("headline", {}).get("main", "No headline available"),
+    #             'snippet': article.get("snippet", "No snippet available"),
+    #             'url': article.get("web_url", "#"),
+    #             'pub_date': article.get("pub_date", "No publication date")
+    #         })
+
+    # except requests.RequestException as e:
+    #     print(f"Error fetching news: {e}")
+    
+    # # Pass data from the database and articles to the template
+    # context = {
+    #     'data': headlines,
+    #     'articles': articles
+    # }
+    
+    # return render(request, 'index.html', context)
+    # # return redirect('index.html')
 
 
 
