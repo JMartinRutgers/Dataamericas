@@ -137,7 +137,7 @@ def index(request):
      
       # API key and URL for fetching news articles
     # api_key = os.getenv("SECRET_API_KEY")
-    # # api_key = 'X0JGJVseutnRfgwAD1l0ACSC4D1JEsh9'
+    # # api_key = 
     # url = f"https://api.nytimes.com/svc/search/v2/articlesearch.json?api-key={api_key}"
    
     # news = []
